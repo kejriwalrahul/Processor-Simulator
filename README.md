@@ -1,2 +1,3 @@
 # CSD_Lab
-CSD Lab Work
+
+Repository containing assignment-wise code for the CSD Lab course
