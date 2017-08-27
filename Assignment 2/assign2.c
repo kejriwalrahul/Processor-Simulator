@@ -28,13 +28,17 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
+#include <sys/time.h>
 
 #include <sys/mman.h>
 #define PROTECTION (PROT_READ | PROT_WRITE)
-#define FLAGS (MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB)
+#define MAP_HUGE_2MB    (21 << MAP_HUGE_SHIFT)
+#define MAP_HUGE_1GB    (30 << MAP_HUGE_SHIFT)
 #ifndef MAP_HUGETLB
 #define MAP_HUGETLB 0x40000
 #endif
+#define FLAGS (MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_2MB)
 
 int B, N, A;
 int W, S;
@@ -48,15 +52,32 @@ unsigned long long rdtscl(void)
 
 void init(char *addr, int assoc){
 	int i;
+
+	int ran_order[assoc];
+	for(i=0; i< assoc; i++)
+		ran_order[i] = i;
+
+	srand(time(NULL));
+	for(int i = assoc-1; i >= 0; --i){
+		int j = rand() % (i+1);
+
+		int temp = ran_order[i];
+		ran_order[i] = ran_order[j];
+		ran_order[j] = temp;
+	}
+
 	for(i=0; i<assoc-1; i++)
-		*((char**)(addr + i*W)) = (addr + (i+1)*W);
+		*((char**)(addr + ran_order[i]*W)) = (addr + (ran_order[i+1])*W);
 	
-	*((char**)(addr + i*W)) = NULL;
+	*((char**)(addr + ran_order[i]*W)) = NULL;
 }
 
 unsigned long long repeatAccess(char *base_addr){
+	int averaging_runs = 1000;
+	int count = 0;
+
 	unsigned long long tot_time = 0;
-	for(int i=0; i<10000; i++){
+	for(int i=0; i<averaging_runs; i++){
 		char *list_elem = base_addr;
 		unsigned long long bef, aft;
 		while(list_elem != NULL){
@@ -64,16 +85,17 @@ unsigned long long repeatAccess(char *base_addr){
 			list_elem = *((char**)list_elem);
 			aft = rdtscl();
 			tot_time += aft-bef;
+			count ++;
 		}
 	}
 
-	return tot_time/10000;
+	return tot_time/count;
 }
 
 void address_translation_test(){
 	// char *base = malloc(2*S);
-	char *base = mmap(NULL, 2*S, PROTECTION, FLAGS, 0, 0);
-	if (base == MAP_FAILED) {
+	char *base = mmap(NULL, 50*S, PROTECTION, FLAGS, -1, 0);
+	if(base == MAP_FAILED){
 		fprintf(stderr, "#fail\n");
 		perror("mmap");
 		exit(1);
@@ -85,22 +107,53 @@ void address_translation_test(){
 		printf("%d\n", assoc);
 		for(int set=0; set<N; set++){
 			init(base+set*B, assoc);
-			temp_res = repeatAccess(base+set*B) / assoc;
+			temp_res = repeatAccess(base+set*B);
 			printf("%llu\t", temp_res);
 		}
 		printf("\n");
 		assoc *= 2;
 	}
+
+	munmap(base, 50*S);
+}
+
+void double_scan(int high_assoc){
+	char *base = mmap(NULL, 50*S, PROTECTION, FLAGS, -1, 0);
+	if(base == MAP_FAILED){
+		fprintf(stderr, "#fail\n");
+		perror("mmap");
+		exit(1);
+	}
+ 
+	unsigned long long temp_res;
+
+	printf("F %d\n", high_assoc);
+	for(int set=0; set<N; set++){
+		init(base+set*B, high_assoc);
+		temp_res = repeatAccess(base+set*B);
+		printf("%llu\t", temp_res);
+	}
+	printf("\n");
+
+	printf("B %d\n", high_assoc);
+	for(int set=N-1; set>=0; set--){
+		init(base+set*B, high_assoc);
+		temp_res = repeatAccess(base+set*B);
+		printf("%llu\t", temp_res);
+	}
+	printf("\n");
+
+	munmap(base, 50*S);
 }
 
 int main(){
-	A = 128;
+	A = 12;
 	B = 64;
 	N = 4096;
 	W = B * N;
 	S = A * W;
 
 	address_translation_test();
-
+	double_scan(64);
 	return 0;
 }

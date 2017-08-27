@@ -6,5 +6,8 @@ assign2.o: assign2.c
 plot: 
 	python plot.py outfile
 
+out:
+	./assign2.o >outfile
+
 clean:
-	rm -f *.o out*
+	rm -f *.o out* *.out
