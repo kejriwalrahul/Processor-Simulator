@@ -3,13 +3,13 @@
 
 	Rahul Kejriwal
 	CS14B023
-
-	Abinash Patra
-	CS14B032
 */
 
 #include <iostream>
+#include <fstream>
 #include <cstring>
+#include <bitset>
+using namespace std;
 
 /*
 	Size Limits
@@ -29,7 +29,7 @@
 #define MULI 7
 
 #define LD  8
-#define ST 10
+#define SD 10
 
 #define JMP  12
 #define BEQZ 13
@@ -38,7 +38,7 @@
 /*
 	Structure to hold instructions
 */
-typedef struct {
+typedef struct Instruction{
 	unsigned short opcode : 4;
 	unsigned short op1 : 4;
 	unsigned short op2 : 4;
@@ -49,12 +49,24 @@ typedef struct {
 		op1 = op2 = op3 = 0;
 	}
 
+	Instruction(){
+		opcode = 0;
+		op1 = op2 = op3 = 0;
+	}
+
+	Instruction(int op, int o1, int o2, int o3){
+		opcode = op;
+		op1 = o1;
+		op2 = o2;
+		op3 = o3;
+	}
+
 } Instruction;
 
 /*
 	Structure to hold 10-bit memory addresses
 */
-typedef struct {
+typedef struct MemoryAddress{
 	unsigned short isData : 1;
 	unsigned short address : 9;
 
@@ -62,6 +74,16 @@ typedef struct {
 		isData = 0;
 		address = 0;
 	}
+
+	MemoryAddress(){
+		isData  = 0;
+		address = 0;
+	}
+
+	MemoryAddress(int iD, int add){
+		isData = iD;
+		address = add;
+	} 
 
 } MemoryAddress;
 
@@ -73,7 +95,7 @@ typedef unsigned short Data;
 	Simulation Processor Class
 */
 class Processor{
-	Instruction IR;
+	Instruction *IR;
 	MemoryAddress PC;
 
 	/*
@@ -93,9 +115,9 @@ class Processor{
 
 public:
 
-	/*Initialize data members*/
+	/* Initialize data members */
 	Processor(){
-		IR.reset();
+		IR = InstrMemory;
 		PC.reset();
 
 		memset(DataMemory, 0, sizeof(char) * MAX_DMEM_SIZE);
@@ -106,7 +128,7 @@ public:
 			RegisterFile[i] = 0;
 	}
 
-	/*Loads Instruction to InstrMemory*/
+	/* Loads Instruction to InstrMemory */
 	int iload(const MemoryAddress &addr, const Instruction &i){
 		// Maligned instruction address
 		if(addr.address % 2)
@@ -116,20 +138,94 @@ public:
 		return 0;
 	}
 
-	/*Loads Data to InstrMemory*/
+	/* Loads Data to InstrMemory */
 	void dload(const MemoryAddress &addr, const Data &val){
 		DataMemory[addr.address] = val & 0xff;
 		DataMemory[addr.address + 1] = (val >> 8) & 0xff;
 	}
 
-	void start(){
-		do{
-			/*Simulate Execution*/
-		} while(IR.opcode != HLT);		
+	/* Loads initial values of registers */
+	void reg_init(const DataElement regAddr, const Data val){
+		if(regAddr < 1 || regAddr > 15)		return;
+		RegisterFile[regAddr] = val;
 	}
 
+	void start(){
+		do{
+			// Fetch & Increment PC
+			IR = &InstrMemory[PC.address/2];
+			PC.address += 2; 
+
+			// Decode & then Execute & then Store Results
+			switch(IR->opcode){
+				case ADD: 	if(IR->op1 != 0)
+								RegisterFile[IR->op1] = RegisterFile[IR->op2] + RegisterFile[IR->op3];
+						  	break;
+				
+				case ADDI:	if(IR->op1 != 0)
+								RegisterFile[IR->op1] = RegisterFile[IR->op2] + IR->op3;
+						  	break;
+				
+				case SUB:	if(IR->op1 != 0)
+								RegisterFile[IR->op1] = RegisterFile[IR->op2] - RegisterFile[IR->op3];
+						  	break;
+				
+				case SUBI:	if(IR->op1 != 0)
+								RegisterFile[IR->op1] = RegisterFile[IR->op2] - IR->op3;
+						  	break;
+				
+				case MUL:	if(IR->op1 != 0)
+								RegisterFile[IR->op1] = RegisterFile[IR->op2] * RegisterFile[IR->op3];
+						  	break;
+				
+				case MULI:	if(IR->op1 != 0)
+								RegisterFile[IR->op1] = RegisterFile[IR->op2] * IR->op3;
+						  	break;
+
+				case LD:	if(IR->op1 != 0){
+								unsigned short loc = IR->op2 + RegisterFile[IR->op3] - 512;
+								RegisterFile[IR->op1] = ((unsigned short) DataMemory[loc] << 8) | DataMemory[loc+1];
+							}
+						  	break;
+
+				case SD:	{
+								unsigned short loc = IR->op1 + RegisterFile[IR->op2] - 512;
+								DataMemory[loc] = (RegisterFile[IR->op3] >> 8);
+								DataMemory[loc+1] = (RegisterFile[IR->op3]);
+						  	}
+						  	break;
+
+				case JMP:	PC.address += (((signed short) (IR->op1)) << 8) | IR->op2;
+							break;
+
+				case BEQZ:	if(RegisterFile[IR->op1] == 0)
+								PC.address += (((signed short) (IR->op2)) << 8) | IR->op3;
+							break;
+			
+				case HLT: break; // do nothing, loop will terminate
+
+				default: break; // silently skip instruction
+			}
+		} while(IR->opcode != HLT);
+	}
+
+	/* Save Memory Dump to outfile */
 	void generateDump(char *outfile){
-		/* Save Memory Dump to outfile */
+		fstream fil(outfile, ios::out);
+
+		fil << "//Code Segment: // $Memory Location$opcode for the instruction\n";
+		for(int i=0; i<MAX_IMEM_SIZE; i++)
+			fil << "$" << (i << 1) << "$" 
+				<< bitset<4>(InstrMemory[i].opcode) 
+				<< bitset<4>(InstrMemory[i].op1)
+				<< bitset<4>(InstrMemory[i].op2)
+				<< bitset<4>(InstrMemory[i].op3) << endl;
+	
+		fil << "\n//Data Segment : $Memory Location$Data\n";
+		for(int i=0; i<MAX_DMEM_SIZE; i+=2)
+			fil << "$" << 512+i << "$"
+				<< bitset<8>(DataMemory[i+1])
+				<< bitset<8>(DataMemory[i]) << endl;
 	}
 
 } SimulationProcessor;
@@ -142,6 +238,30 @@ void InitializeProcessor(char *infile){
 	/* Compile Binary and load to Simulation Processor */
 }
 
+/* For Testing Purposes*/
+void InitializeProcessorTest(){
+	SimulationProcessor.reg_init(2, 600);
+	SimulationProcessor.reg_init(3, 800);
+
+	SimulationProcessor.dload(MemoryAddress(1,600-512), 55);
+	SimulationProcessor.dload(MemoryAddress(1,800-512), 44);
+
+	// LD R4 R0[R2]
+	SimulationProcessor.iload(MemoryAddress(0, 0), Instruction(LD, 4, 0, 2));
+	// LD R5 R0[R3]
+	SimulationProcessor.iload(MemoryAddress(0, 2), Instruction(LD, 5, 0, 3));
+	// ADD R6 R4 R4
+	SimulationProcessor.iload(MemoryAddress(0, 4), Instruction(ADD, 6, 4, 4));
+	// ADD R7 R5 R5
+	SimulationProcessor.iload(MemoryAddress(0, 6), Instruction(ADD, 7, 5, 5));
+	// SD R0[R2] R7
+	SimulationProcessor.iload(MemoryAddress(0, 8), Instruction(SD, 0, 2, 7));
+	// SD R0[R3] R6
+	SimulationProcessor.iload(MemoryAddress(0, 10), Instruction(SD, 0, 3, 6));
+	// HLT
+	SimulationProcessor.iload(MemoryAddress(0, 12), Instruction(HLT, 0, 0, 0));
+}
+
 int main(int argc, char *argv[]){
 	if(argc != 3){
 		printf("Usage: ./ProcessorSimulator.o <infile> <outfile>\n");
@@ -149,9 +269,12 @@ int main(int argc, char *argv[]){
 	}
 
 	// Compile Assembly to binary and load
-	InitializeProcessor(argv[1]);
+	// InitializeProcessor(argv[1]);
+	InitializeProcessorTest();
+	
 	// Simulate Processor on binary
 	SimulationProcessor.start();
+	
 	// Dump memory to file
 	SimulationProcessor.generateDump(argv[2]);	
 
