@@ -9,6 +9,7 @@
 */
 
 #include <iostream>
+#include <cstring>
 
 /*
 	Size Limits
@@ -38,10 +39,10 @@
 	Structure to hold instructions
 */
 typedef struct {
-	unsigned short opcode : 4,
-	unsigned short op1 : 4,
-	unsigned short op2 : 4,
-	unsigned short op3 : 4
+	unsigned short opcode : 4;
+	unsigned short op1 : 4;
+	unsigned short op2 : 4;
+	unsigned short op3 : 4;
 
 	void reset(){
 		opcode = 0;
@@ -54,8 +55,8 @@ typedef struct {
 	Structure to hold 10-bit memory addresses
 */
 typedef struct {
-	unsigned short isData : 1,
-	unsigned short address : 9
+	unsigned short isData : 1;
+	unsigned short address : 9;
 
 	void reset(){
 		isData = 0;
@@ -93,7 +94,7 @@ class Processor{
 public:
 
 	/*Initialize data members*/
-	SimulationProcessor(){
+	Processor(){
 		IR.reset();
 		PC.reset();
 
@@ -124,7 +125,7 @@ public:
 	void start(){
 		do{
 			/*Simulate Execution*/
-		} while(PC.opcode != HLT);		
+		} while(IR.opcode != HLT);		
 	}
 
 	void generateDump(char *outfile){
