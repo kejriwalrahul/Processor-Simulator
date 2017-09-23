@@ -6,10 +6,17 @@
 */
 
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <cstring>
 #include <bitset>
 using namespace std;
+
+/*
+	Twos Complement Conversion
+*/
+#define TWOCOMP(x) (((x)>7)?x-16:x)
+#define TWOCOMP2(x) (((x)>127)?x-256:x)
 
 /*
 	Size Limits
@@ -89,7 +96,7 @@ typedef struct MemoryAddress{
 
 // Typedef-ed
 typedef unsigned char  DataElement;
-typedef unsigned short Data;
+typedef signed short Data;
 
 /*
 	Simulation Processor Class
@@ -163,7 +170,7 @@ public:
 						  	break;
 				
 				case ADDI:	if(IR->op1 != 0)
-								RegisterFile[IR->op1] = RegisterFile[IR->op2] + IR->op3;
+								RegisterFile[IR->op1] = RegisterFile[IR->op2] + TWOCOMP(IR->op3);
 						  	break;
 				
 				case SUB:	if(IR->op1 != 0)
@@ -171,7 +178,7 @@ public:
 						  	break;
 				
 				case SUBI:	if(IR->op1 != 0)
-								RegisterFile[IR->op1] = RegisterFile[IR->op2] - IR->op3;
+								RegisterFile[IR->op1] = RegisterFile[IR->op2] - TWOCOMP(IR->op3);
 						  	break;
 				
 				case MUL:	if(IR->op1 != 0)
@@ -179,27 +186,27 @@ public:
 						  	break;
 				
 				case MULI:	if(IR->op1 != 0)
-								RegisterFile[IR->op1] = RegisterFile[IR->op2] * IR->op3;
+								RegisterFile[IR->op1] = RegisterFile[IR->op2] * TWOCOMP(IR->op3);
 						  	break;
 
 				case LD:	if(IR->op1 != 0){
-								unsigned short loc = IR->op2 + RegisterFile[IR->op3] - 512;
+								unsigned short loc = RegisterFile[IR->op2] + RegisterFile[IR->op3] - 512;
 								RegisterFile[IR->op1] = ((unsigned short) DataMemory[loc] << 8) | DataMemory[loc+1];
 							}
 						  	break;
 
 				case SD:	{
-								unsigned short loc = IR->op1 + RegisterFile[IR->op2] - 512;
-								DataMemory[loc] = (RegisterFile[IR->op3] >> 8);
+								unsigned short loc = RegisterFile[IR->op1] + RegisterFile[IR->op2] - 512;
+								DataMemory[loc] = ( ((unsigned short)RegisterFile[IR->op3]) >> 8 );
 								DataMemory[loc+1] = (RegisterFile[IR->op3]);
 						  	}
 						  	break;
 
-				case JMP:	PC.address += (((signed short) (IR->op1)) << 8) | IR->op2;
+				case JMP:	PC.address += TWOCOMP2((((unsigned short) (IR->op1)) << 8) | IR->op2);
 							break;
 
 				case BEQZ:	if(RegisterFile[IR->op1] == 0)
-								PC.address += (((signed short) (IR->op2)) << 8) | IR->op3;
+								PC.address += TWOCOMP2((((unsigned short) (IR->op2)) << 8) | IR->op3);
 							break;
 			
 				case HLT: break; // do nothing, loop will terminate
@@ -215,7 +222,7 @@ public:
 
 		fil << "//Code Segment: // $Memory Location$opcode for the instruction\n";
 		for(int i=0; i<MAX_IMEM_SIZE; i++)
-			fil << "$" << (i << 1) << "$" 
+			fil << ((i<5)?"$00":((i<50)?"$0":"$")) << (i << 1) << "$" 
 				<< bitset<4>(InstrMemory[i].opcode) 
 				<< bitset<4>(InstrMemory[i].op1)
 				<< bitset<4>(InstrMemory[i].op2)
