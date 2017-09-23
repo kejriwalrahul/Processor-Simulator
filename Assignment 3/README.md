@@ -15,5 +15,6 @@ Sample output file : "output"
 
 ## For running,
 
-```$ javac preprocessing.java```
-```$ java PreProcess```
+1. Compile using, ```$ javac preprocessing.java```
+2. Run using, ```$ java PreProcess <inputFile> <outputFile>```
+3. P.S. : Specifying inputFile & outputFile is optional. Default, "input" & "output" respectively.

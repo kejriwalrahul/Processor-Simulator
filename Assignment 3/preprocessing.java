@@ -2,8 +2,10 @@ import java.util.*;
 import java.io.*;
 class PreProcess{
 
-	static HashMap<String, String> labels = new HashMap<String, String>();
+	static HashMap<String, Integer> labels = new HashMap<String, Integer>();
 	static HashMap<String, String> init = new HashMap<String,String>();
+	static String input = "input";
+	static String output = "output";
 
 	static String twosComplement(Integer bits, Integer val){   //For finding 2's complement incase imm is -ve.
 		String temp =  Integer.toBinaryString(val);
@@ -39,7 +41,7 @@ class PreProcess{
 			while(raf.getFilePointer()<raf.length()){
 				temp = raf.readLine().trim();
 				if (temp.contains(":")) {
-					labels.put(temp.split(":")[0],twosComplement(8,inst));
+					labels.put(temp.split(":")[0],inst);
 				}
 				inst += 2;
 			}
@@ -66,8 +68,8 @@ class PreProcess{
 
 	static void translate(){ //For translation from assembly to binary
 		try{
-			RandomAccessFile raf = new RandomAccessFile("input","r");
-			RandomAccessFile rout = new RandomAccessFile("output","rw");
+			RandomAccessFile raf = new RandomAccessFile(input,"r");
+			RandomAccessFile rout = new RandomAccessFile(output,"rw");
 			String temp = ""; Integer inst = 0; String tbw = "";
 			while(raf.getFilePointer()<raf.length()){
 				temp = raf.readLine().trim(); tbw = "";
@@ -90,12 +92,13 @@ class PreProcess{
 					String[] tokens = temp.split(" ");
 					tbw += init.get(tokens[0]);
 					tbw += "0000";
-					tbw += labels.get(tokens[1]);
+					tbw += String.valueOf(twosComplement(8,(labels.get(tokens[1]))-inst));
 				}else if (temp.contains("BEQZ")) {
 					String[] tokens = temp.split(" ");
 					tbw += init.get(tokens[0]);
 					tbw += init.get(tokens[1].split("\\(")[1].split("\\)")[0]);
-					tbw += labels.get(tokens[2]);
+					tbw += String.valueOf(twosComplement(8,(labels.get(tokens[2]))-inst));
+
 				}else if (temp.contains("LD")) {
 					String[] tokens = temp.split(" ");
 					tbw += init.get(tokens[0]);
@@ -120,11 +123,39 @@ class PreProcess{
 		}catch(Exception e){e.printStackTrace();}
 	}
 
+	static void intermediateGen(){ //generate intermediate print it out on screen
+		try{
+			RandomAccessFile raf = new RandomAccessFile(output,"rw");
+			while(raf.getFilePointer()<raf.length()){
+				String tbw = "";
+				String tokens = raf.readLine().substring(10);
+				for (Integer i=1;i <= 4;i++ ) {
+					char[] charArray= tokens.substring(8*(i-1),(8*i)).toCharArray();
+					String temp= "";
+					for (Integer j=0;j<charArray.length;j++ ){
+						if (j%2!=0)						
+							temp += charArray[j];
+					}
+					if (i<=3)				
+						tbw += String.valueOf(Integer.parseInt(temp,2))+",";
+					else
+						tbw += String.valueOf(Integer.parseInt(temp,2));
+				}
+				System.out.println(tbw);
+			}
+
+		}catch(Exception e){e.printStackTrace();}		
+	}
 
 
 	public static void main(String []args) {
+		if (args.length == 2) {
+			input = args[0];
+			output = args[1];
+		}
 		loadLabels();
 		init();
 		translate();
+		intermediateGen();
    }
 }
