@@ -214,19 +214,20 @@ public:
 	void generateDump(char *outfile){
 		fstream fil(outfile, ios::out);
 
-		fil << "//Code Segment: // $Memory Location$opcode for the instruction\n";
-		for(int i=0; i<MAX_IMEM_SIZE; i++)
-			fil << ((i<5)?"$00":((i<50)?"$0":"$")) << (i << 1) << "$" 
-				<< bitset<4>(InstrMemory[i].opcode) 
-				<< bitset<4>(InstrMemory[i].op1)
-				<< bitset<4>(InstrMemory[i].op2)
+		for(int i=0; i<MAX_IMEM_SIZE; i++){
+			fil << ((i<5)?"000":((i<50)?"00":"0"))  << (i << 1) << " : " 
+				<< bitset<4>(InstrMemory[i].opcode) << " "
+				<< bitset<4>(InstrMemory[i].op1) << endl;
+			fil << ((i<5)?"000":((i<50)?"00":"0"))  << (i << 1) + 1 << " : "
+				<< bitset<4>(InstrMemory[i].op2) << " "
 				<< bitset<4>(InstrMemory[i].op3) << endl;
+		}
 	
-		fil << "\n//Data Segment : $Memory Location$Data\n";
-		for(int i=0; i<MAX_DMEM_SIZE; i+=2)
-			fil << "$" << 512+i << "$"
-				<< bitset<8>(DataMemory[i])
-				<< bitset<8>(DataMemory[i+1]) << endl;
+		for(int i=0; i<MAX_DMEM_SIZE; i+=1){
+			fil << ((512+i < 1000)?"0":"") << 512+i << " : "
+				<< bitset<4>(DataMemory[i] >> 4) << " " 
+				<< bitset<4>(DataMemory[i]) << endl;
+		}
 	}
 
 } SimulationProcessor;
