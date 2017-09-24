@@ -55,5 +55,8 @@ dkms.conf
 Archive/*
 
 # Class Files
-
 *.class
+
+# Binary path
+bin/
+
