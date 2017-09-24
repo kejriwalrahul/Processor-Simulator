@@ -2,7 +2,7 @@
 
 ## // Register File initialization. $Register Name$Contents 
 $R1$600 
-$R2$602 
+$R2$800 
 
 ## // Memory initialization. $Memory Location$ Value 
 $600$150 

@@ -4,9 +4,10 @@
 $R1$600 
 $R2$800 
 $R3$900 
-$R4$500 
+$R4$512 
+
 ## // Memory initialization. $Memory Location$ Value 
-$500$5	//Count 
+$512$5	//Count 
 $600$2	//First Array 
 $602$-5
 $604$-120 

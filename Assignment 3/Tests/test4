@@ -12,7 +12,7 @@ SUB R1 R1 R1
 SUB R2 R2 R2 
 ADD R0 R0 #4 
 ADD R2 R2 #1 
-ADD R5 R5 #10 
+ADD R5 R5 #7 
 L1: BEQZ (R5) L2 
       ADD R3 R2 R1 
       SD R0[R4] R3 
