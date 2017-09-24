@@ -86,7 +86,9 @@ class PreProcess{
 			while(raf.getFilePointer()<raf.length()){
 				temp = raf.readLine().trim(); tbw = "";
 				if (temp.contains(":")) {
-					temp = temp.split(":")[1].trim();
+					if (!temp.startsWith("##")&&!temp.startsWith("//")) {
+						temp = temp.split(":")[1].trim();
+					}
 				}
 				if (temp.contains("##")||temp.contains("$")||temp.length()==0) {
 					toPrint = 0;
