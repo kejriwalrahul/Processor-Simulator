@@ -85,22 +85,27 @@ class PreProcess{
 					toPrint = 0;
 					if (temp.contains("$") && !temp.contains("##") && temp.length()!=0) {
 						String[] tokens = temp.split("\\$");
+						if (tokens[2].contains("//")) {
+							tokens[2] = tokens[2].split("//")[0].trim();
+						}
 						if (tokens[1].contains("R")) {
 							registers.put(tokens[1],tokens[2]);
 						}else{
 							memory.put(tokens[1],tokens[2]);
 						}
 					}
+				}else if (temp.startsWith("//")) {
+					toPrint = 0;
 				}else if (temp.contains("#")){
 					String[] tokens = temp.split("\\s+");
 					tbw += init.get(tokens[0]+"I");
 					tbw += init.get(tokens[1]);					
 					tbw += init.get(tokens[2]);
-					tbw += twosComplement(4,Integer.valueOf(tokens[tokens.length-1].split("#")[1]));
+					tbw += twosComplement(4,Integer.valueOf(tokens[3].split("#")[1]));
 				}else if (temp.contains("ADD") || temp.contains("SUB") || temp.contains("MUL") ) {
 					String[] tokens = temp.split("\\s+");
 					tbw += init.get(tokens[0]);
-					for(Integer i =1 ; i < tokens.length; i++){
+					for(Integer i =1 ; i < 4; i++){
 						tbw += init.get(tokens[i]);
 					}
 				}else if (temp.contains("JMP")) {
@@ -131,7 +136,6 @@ class PreProcess{
 				if (toPrint==1) {
 					tbw = "$"+instPrint(String.valueOf(inst))+"$"+tbw+'\n';
 					inst += 2;
-					// System.out.println(inst);
 					rout.writeChars(tbw);	
 				}else{
 					toPrint = 1;
