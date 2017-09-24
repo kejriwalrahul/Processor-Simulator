@@ -3,8 +3,11 @@
 	# Change to binary directory
 	cd bin
 	# Convert assembly to binary IR
-	java PreProcess ../$1 >binary_prog
+	cp ../$1 input
+	java PreProcess > binary_prog
+	rm input
 	cat binary_prog
+	
 	# Load binary IR and simulate execution
 	# ./ProcessorSimulator.o binary_prog ../data_dump
 	# Remove temporary file

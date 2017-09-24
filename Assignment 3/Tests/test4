@@ -1,9 +1,13 @@
-##   ​  //Register File initialization. $Register Name$Contents 
-$R4$600 
-##  // Memory initialization. $Memory Location$ Value 
+## Case 4: Fibonacci Series  
+
+## // Register File initialization. $Register Name$Contents 
+$R4$600
+
+## // Memory initialization. $Memory Location$ Value 
 $600$0 
 $602$1 
-##  // Assembly Code 
+
+## // Assembly Code 
 SUB R1 R1 R1 
 SUB R2 R2 R2 
 ADD R0 R0 #4 

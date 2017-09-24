@@ -1,11 +1,18 @@
+/*
+	Parse Input assembly into binary IR for loading
+
+	Abinash Patra
+	CS14B032
+*/
+
 import java.util.*;
 import java.io.*;
-class PreProcess{
 
-	static HashMap<String, Integer> labels = new HashMap<String, Integer>();
-	static HashMap<String, String> registers = new HashMap<String, String>();
-	static HashMap<String, String> memory = new HashMap<String, String>();
-	static HashMap<String, String> init = new HashMap<String,String>();
+class PreProcess{
+	static HashMap<String, Integer> labels 		= new HashMap<String, Integer>();
+	static HashMap<String, String> registers 	= new HashMap<String, String>();
+	static HashMap<String, String> memory 		= new HashMap<String, String>();
+	static HashMap<String, String> init 		= new HashMap<String,String>();
 	static String input = "input";
 	static String output = "temp";
 

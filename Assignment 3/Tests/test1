@@ -1,10 +1,12 @@
-##   ​  //Register File initialization. $Register Name$Contents 
+## Case 1: Swap the two numbers after doubling 
+
+## // Register File initialization. $Register Name$Contents 
 $R2$600 
 $R3$800 
-##  // Memory initialization. $Memory Location$ Value 
+## // Memory initialization. $Memory Location$ Value 
 $600$55 
 $800$44 
-##  // Assembly Code 
+## // Assembly Code 
 LD R4 R0[R2] 
 LD R5 R0[R3] 
 ADD R6 R4 R4 
