@@ -1,8 +1,8 @@
 all: ProcessorSimulator.o assembler
 
-ProcessorSimulator.o: ProcessorSimulator.cpp
+ProcessorSimulator.o: simulator.cpp
 	mkdir -p bin
-	g++ -g ProcessorSimulator.cpp -o bin/ProcessorSimulator.o
+	g++ -g simulator.cpp -o bin/ProcessorSimulator.o
 
 assembler:
 	mkdir -p bin
