@@ -8,15 +8,15 @@ $R4$500
 ## // Memory initialization. $Memory Location$ Value 
 $500$5	//Count 
 $600$2	//First Array 
-$602$­-5
-$604$­-120 
+$602$-5
+$604$-120 
 $606$10 
 $608$17 
-$800$­-5	//Second Array 
+$800$-5	//Second Array 
 $802$5 
 $804$150 
 $806$6 
-$808$­-11 
+$808$-11 
  
 ## // Assembly Code 
 LD R5 R0[R4] 
