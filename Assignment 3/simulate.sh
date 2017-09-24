@@ -4,7 +4,7 @@
 	cd bin
 	
 	# Convert assembly to binary IR
-	cp ../$1 input
+	cat <&0 >input
 	java PreProcess > binary_prog
 	rm input
 	
