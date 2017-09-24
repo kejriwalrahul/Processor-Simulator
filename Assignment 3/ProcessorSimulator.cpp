@@ -147,13 +147,13 @@ public:
 
 	/* Loads Data to InstrMemory */
 	void dload(const MemoryAddress &addr, const Data &val){
-		DataMemory[addr.address] = val & 0xff;
-		DataMemory[addr.address + 1] = (val >> 8) & 0xff;
+		DataMemory[addr.address] = (val >> 8) & 0xff;
+		DataMemory[addr.address + 1] = val & 0xff;
 	}
 
 	/* Loads initial values of registers */
 	void reg_init(const DataElement regAddr, const Data val){
-		if(regAddr < 1 || regAddr > 15)		return;
+		if(regAddr < 0 || regAddr > 15)		return;
 		RegisterFile[regAddr] = val;
 	}
 
@@ -165,31 +165,25 @@ public:
 
 			// Decode & then Execute & then Store Results
 			switch(IR->opcode){
-				case ADD: 	if(IR->op1 != 0)
-								RegisterFile[IR->op1] = RegisterFile[IR->op2] + RegisterFile[IR->op3];
+				case ADD: 	RegisterFile[IR->op1] = RegisterFile[IR->op2] + RegisterFile[IR->op3];
 						  	break;
 				
-				case ADDI:	if(IR->op1 != 0)
-								RegisterFile[IR->op1] = RegisterFile[IR->op2] + TWOCOMP(IR->op3);
+				case ADDI:	RegisterFile[IR->op1] = RegisterFile[IR->op2] + TWOCOMP(IR->op3);
+							break;
+				
+				case SUB:	RegisterFile[IR->op1] = RegisterFile[IR->op2] - RegisterFile[IR->op3];
 						  	break;
 				
-				case SUB:	if(IR->op1 != 0)
-								RegisterFile[IR->op1] = RegisterFile[IR->op2] - RegisterFile[IR->op3];
+				case SUBI:	RegisterFile[IR->op1] = RegisterFile[IR->op2] - TWOCOMP(IR->op3);
 						  	break;
 				
-				case SUBI:	if(IR->op1 != 0)
-								RegisterFile[IR->op1] = RegisterFile[IR->op2] - TWOCOMP(IR->op3);
+				case MUL:	RegisterFile[IR->op1] = RegisterFile[IR->op2] * RegisterFile[IR->op3];
 						  	break;
 				
-				case MUL:	if(IR->op1 != 0)
-								RegisterFile[IR->op1] = RegisterFile[IR->op2] * RegisterFile[IR->op3];
-						  	break;
-				
-				case MULI:	if(IR->op1 != 0)
-								RegisterFile[IR->op1] = RegisterFile[IR->op2] * TWOCOMP(IR->op3);
+				case MULI:	RegisterFile[IR->op1] = RegisterFile[IR->op2] * TWOCOMP(IR->op3);
 						  	break;
 
-				case LD:	if(IR->op1 != 0){
+				case LD:	{
 								unsigned short loc = RegisterFile[IR->op2] + RegisterFile[IR->op3] - 512;
 								RegisterFile[IR->op1] = ((unsigned short) DataMemory[loc] << 8) | DataMemory[loc+1];
 							}
@@ -202,11 +196,11 @@ public:
 						  	}
 						  	break;
 
-				case JMP:	PC.address += TWOCOMP2((((unsigned short) (IR->op1)) << 8) | IR->op2);
+				case JMP:	PC.address += TWOCOMP2((((unsigned short) (IR->op2)) << 4) | IR->op3) - 2;
 							break;
 
 				case BEQZ:	if(RegisterFile[IR->op1] == 0)
-								PC.address += TWOCOMP2((((unsigned short) (IR->op2)) << 8) | IR->op3);
+								PC.address += TWOCOMP2((((unsigned short) (IR->op2)) << 4) | IR->op3) - 2;
 							break;
 			
 				case HLT: break; // do nothing, loop will terminate
@@ -231,8 +225,8 @@ public:
 		fil << "\n//Data Segment : $Memory Location$Data\n";
 		for(int i=0; i<MAX_DMEM_SIZE; i+=2)
 			fil << "$" << 512+i << "$"
-				<< bitset<8>(DataMemory[i+1])
-				<< bitset<8>(DataMemory[i]) << endl;
+				<< bitset<8>(DataMemory[i])
+				<< bitset<8>(DataMemory[i+1]) << endl;
 	}
 
 } SimulationProcessor;
@@ -243,30 +237,32 @@ public:
 */
 void InitializeProcessor(char *infile){
 	/* Compile Binary and load to Simulation Processor */
-}
+	FILE *fp = fopen(infile, "r");
+	int val1, val2;
+	
+	// Register Initialization
+	for(int i=0; i<16; i++){
+		fscanf(fp, "%d", &val1);
+		SimulationProcessor.reg_init(i, val1);
+	}
 
-/* For Testing Purposes*/
-void InitializeProcessorTest(){
-	SimulationProcessor.reg_init(2, 600);
-	SimulationProcessor.reg_init(3, 800);
+	// Memory Initialization
+	fscanf(fp, "%d %d", &val1, &val2);
+	while(val1 != -1){
+		SimulationProcessor.dload(MemoryAddress(1, val1-512), val2);
+		fscanf(fp, "%d %d", &val1, &val2);
+	}
 
-	SimulationProcessor.dload(MemoryAddress(1,600-512), 55);
-	SimulationProcessor.dload(MemoryAddress(1,800-512), 44);
+	// Instructions Load
+	int opcode, op1, op2, op3;
+	int address = 0;
 
-	// LD R4 R0[R2]
-	SimulationProcessor.iload(MemoryAddress(0, 0), Instruction(LD, 4, 0, 2));
-	// LD R5 R0[R3]
-	SimulationProcessor.iload(MemoryAddress(0, 2), Instruction(LD, 5, 0, 3));
-	// ADD R6 R4 R4
-	SimulationProcessor.iload(MemoryAddress(0, 4), Instruction(ADD, 6, 4, 4));
-	// ADD R7 R5 R5
-	SimulationProcessor.iload(MemoryAddress(0, 6), Instruction(ADD, 7, 5, 5));
-	// SD R0[R2] R7
-	SimulationProcessor.iload(MemoryAddress(0, 8), Instruction(SD, 0, 2, 7));
-	// SD R0[R3] R6
-	SimulationProcessor.iload(MemoryAddress(0, 10), Instruction(SD, 0, 3, 6));
-	// HLT
-	SimulationProcessor.iload(MemoryAddress(0, 12), Instruction(HLT, 0, 0, 0));
+	fscanf(fp, "%d %d %d %d", &opcode, &op1, &op2, &op3);
+	while(opcode != -1){
+		SimulationProcessor.iload(MemoryAddress(0, address), Instruction(opcode, op1, op2, op3));
+		address += 2;
+		fscanf(fp, "%d %d %d %d", &opcode, &op1, &op2, &op3);
+	}
 }
 
 int main(int argc, char *argv[]){
@@ -276,9 +272,8 @@ int main(int argc, char *argv[]){
 	}
 
 	// Compile Assembly to binary and load
-	// InitializeProcessor(argv[1]);
-	InitializeProcessorTest();
-	
+	InitializeProcessor(argv[1]);
+
 	// Simulate Processor on binary
 	SimulationProcessor.start();
 	

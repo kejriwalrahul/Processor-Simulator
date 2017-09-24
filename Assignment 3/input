@@ -1,0 +1,30 @@
+##   ​  //Register File initialization. $Register Name$Contents 
+$R1$600
+$R2$800
+$R3$900
+$R4$514
+##  // Memory initialization. $Memory Location$ Value 
+$514$5
+$600$2
+$602$-5
+$604$-120
+$606$10
+$608$17
+$800$-5
+$802$5
+$804$150
+$806$6
+$808$-11
+
+##  // Assembly Code 
+ 
+LD R5 R0[R4]  
+L1: BEQZ (R5) L2 
+      LD R6 R0[R1] 
+      LD R7 R0[R2] 
+      ADD R8 R6 R7 
+      SD R0[R3] R8 
+      ADD R0 R0 #2 
+      SUB R5 R5 #1 
+      JMP L1 
+L2: HLT 

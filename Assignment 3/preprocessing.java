@@ -131,7 +131,7 @@ class PreProcess{
 				if (toPrint==1) {
 					tbw = "$"+instPrint(String.valueOf(inst))+"$"+tbw+'\n';
 					inst += 2;
-					System.out.println(inst);
+					// System.out.println(inst);
 					rout.writeChars(tbw);	
 				}else{
 					toPrint = 1;
@@ -187,5 +187,6 @@ class PreProcess{
 		init();
 		translate();
 		intermediateGen();
+		System.out.println("-1 -1 -1 -1");
    }
 }
