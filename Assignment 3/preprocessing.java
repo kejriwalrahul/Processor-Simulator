@@ -45,7 +45,7 @@ class PreProcess{
 
 	static void loadLabels(){ //For loading labels
 		try{
-			RandomAccessFile raf = new RandomAccessFile("input","r");
+			RandomAccessFile raf = new RandomAccessFile(input,"r");
 			String temp = ""; Integer inst = 0;
 			while(raf.getFilePointer()<raf.length()){
 				temp = raf.readLine().trim();
@@ -124,13 +124,17 @@ class PreProcess{
 					String[] tokens = temp.split("\\s+");
 					tbw += init.get(tokens[0]);
 					tbw += init.get(tokens[1].split("\\(")[1].split("\\)")[0]);
+					// System.out.println(tbw);
+					// System.out.println(labels.get(tokens[2]));
 					tbw += String.valueOf(twosComplement(8,(labels.get(tokens[2]))-inst));
+					// System.out.println(tbw);
 				}else if (temp.contains("LD")) {
 					String[] tokens = temp.split("\\s+");
 					tbw += init.get(tokens[0]);
 					tbw += init.get(tokens[1]);
 					tbw += init.get(tokens[2].split("\\[")[0]);
 					tbw += init.get(tokens[2].split("\\[")[1].split("\\]")[0]);
+					// System.out.println(tbw);
 				}else if (temp.contains("SD")) {
 					String[] tokens = temp.split("\\s+");
 					tbw += init.get(tokens[0]);
@@ -141,9 +145,12 @@ class PreProcess{
 					tbw = init.get("HLT")+"0000"+"0000"+"0000";
 				}
 				if (toPrint==1) {
-					tbw = "$"+instPrint(String.valueOf(inst))+"$"+tbw+'\n';
-					inst += 2;
-					rout.writeChars(tbw);	
+					// System.out.println(tbw.length());
+					if(tbw.length()==16){
+						tbw = "$"+instPrint(String.valueOf(inst))+"$"+tbw+'\n';
+						inst += 2;
+						rout.writeChars(tbw);	
+					}
 				}else{
 					toPrint = 1;
 				}
@@ -192,6 +199,7 @@ class PreProcess{
 	public static void main(String []args) {
 		if (args.length == 1) {
 			input = args[0];
+			// System.out.println(input);
 			// output = args[1];
 		}
 		loadLabels();
