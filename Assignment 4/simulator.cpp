@@ -140,17 +140,17 @@ class Processor{
 		regIds[1] = IR->op2;
 		regIds[2] = IR->op3;
 		
-		regVals[0] = RegisterFile[reg1addr];
-		regVals[1] = RegisterFile[reg2addr];
-		regVals[2] = RegisterFile[reg3addr];
+		regVals[0] = RegisterFile[regIds[0]];
+		regVals[1] = RegisterFile[regIds[1]];
+		regVals[2] = RegisterFile[regIds[2]];
 	
 		ImmVal = TWOCOMP(IR->op3);
 		Addr = TWOCOMP2((((unsigned short) (IR->op2)) << 4) | IR->op3);
 	}
 
 	/* Stage 3: Execute */
-	void execute(unsigned short opcode, unsigned short *regIds, Data *regVals, Data ImmVal, unsigned short Addr, MemoryAddress currPC, Data &ALUResult, unsigned short &loc, MemoryAddress &nextPC){
-		// Ac;tual Execution
+	void execute(unsigned short opcode, unsigned short *regIds, Data *regVals, Data ImmVal, signed short Addr, MemoryAddress currPC, Data &ALUResult, unsigned short &loc, MemoryAddress &nextPC){
+		// Actual Execution
 		switch(opcode){
 			case ADD: 	ALUResult = regVals[1] + regVals[2];
 					  	break;
@@ -194,9 +194,9 @@ class Processor{
 	}
 
 	/* Stage 4: Memory Operations and branching */
-	void memoryOpsAndBranch(Data ALUResult, unsigned short loc, MemoryAddress nextPC, unsigned short opcode, bool &flushFlag, Data &newALUResult){
+	void memoryOpsAndBranch(Data ALUResult, unsigned short loc, MemoryAddress nextPC, unsigned short opcode, bool &flushFlag, Data &newALUResult, unsigned short &PCaddrAfterFlush){
 
-		flushFlag = false;
+		flushFlag = false; 
 
 		switch(opcode){
 			case LD:	newALUResult = ((unsigned short) DataMemory[loc] << 8) | DataMemory[loc+1];
@@ -206,13 +206,13 @@ class Processor{
 						DataMemory[loc+1] = (ALUResult);
 						break;
 
-			case JMP:	PC.address = nextPC.address;
+			case JMP:	PCaddrAfterFlush = nextPC.address;
 						// flush pipeline
 						flushFlag = true;
 						break;
 
 			case BEQZ:	if(ALUResult){
-							PC.address = nextPC.address;
+							PCaddrAfterFlush = nextPC.address;
 							// flush pipeline
 							flushFlag = true;
 						}
@@ -288,30 +288,38 @@ public:
 		#define EXE_STAGE 2
 		#define DEC_STAGE 1
 		#define FI_STAGE  0
-		int locks[5] = { 0, 1, 2, 3, 4 }
+		int locks[5] = { 0, 1, 2, 3, 4 };
 
+		/* Data Forwarding */
+		Data lastComputedVals[3];
+		unsigned short lastComputedRegs[3];
+		for(int idx=0; idx<3; idx++)	lastComputedRegs[idx] = 32;
+
+		/* Interface Variable Declarations */
+		
+		MemoryAddress oldPC;
+		unsigned short opcode;
+		unsigned short regIds[3];
+		Data regVals[3];
+		Data ImmVal;
+		unsigned short Addr;
+
+		Data ALUResult;
+		unsigned short loc;
+		MemoryAddress nextPC; nextPC.isData = 0;
+		unsigned short oldOpcode;
+
+		Data newALUResult;
+		unsigned short tgtReg;
+		unsigned short oldTgtReg;
+		unsigned short olderOpcode;
+
+		bool flushFlag;
+		unsigned short PCaddrAfterFlush;
+		
 		// Simulate in reverse order of stages to avoid temporary variables (buffer registers)
 		do{
-			/* Interface Variable Declarations */
-			
-			MemoryAddress oldPC;
-			unsigned short opcode;
-			unsigned short regIds[3];
-			Data regVals[3];
-			Data ImmVal;
-			unsigned short Addr;
 
-			Data ALUResult;
-			unsigned short loc;
-			MemoryAddress nextPC; nextPC.isData = 0;
-			unsigned short oldOpcode;
-
-			Data newALUResult;
-			unsigned short tgtReg;
-			unsigned short oldTgtReg;
-			unsigned short olderOpcode;
-
-			bool flushFlag;
 
 			/*
 				Stage 5 - Write Back
@@ -342,7 +350,13 @@ public:
 				*/
 
 				// Mem Ops & branch
-				memoryOpsAndBranch(ALUResult, loc, nextPC, oldOpcode, flushFlag, newALUResult);
+				memoryOpsAndBranch(ALUResult, loc, nextPC, oldOpcode, flushFlag, newALUResult, PCaddrAfterFlush);
+			
+				/* Some data forwarding*/
+				if(oldOpcode == LD){
+					lastComputedRegs[2] = tgtReg;
+					lastComputedVals[2] = newALUResult;
+				}
 			}
 			else
 				locks[MEM_STAGE]--;
@@ -356,10 +370,39 @@ public:
 
 			if(!locks[EXE_STAGE]){
 				// Data Forwarding here
-
+				for(int idx=0; idx<3; idx++){
+					if(regIds[idx] == lastComputedRegs[2])
+						regVals[idx] = lastComputedVals[2];
+					else if(regIds[idx] == lastComputedRegs[1])
+						regVals[idx] = lastComputedVals[1];
+					else if(regIds[idx] == lastComputedRegs[0])
+						regVals[idx] = lastComputedVals[0];
+				}
 
 				// Execute
 				execute(opcode, regIds, regVals, ImmVal, Addr, oldPC, ALUResult, loc, nextPC);				
+			
+				// Cycle the stored vals
+				lastComputedRegs[0] = lastComputedRegs[1];
+				lastComputedRegs[1] = lastComputedRegs[2];
+				lastComputedVals[0] = lastComputedVals[1];
+				lastComputedVals[1] = lastComputedVals[2];
+
+				// Store latest computed value
+				if(	
+					opcode == ADD  || 
+					opcode == ADDI || 
+					opcode == SUB  || 
+					opcode == SUBI || 
+					opcode == MUL  || 
+					opcode == MULI 
+				  ){
+					lastComputedVals[2] = ALUResult;
+					lastComputedRegs[2] = regIds[0];	
+				}
+				else{
+					lastComputedRegs[2] = 32;						
+				}
 			}
 			else
 				locks[EXE_STAGE]--;
@@ -391,6 +434,8 @@ public:
 			*/
 			if(flushFlag){
 				locks[0] = 0; locks[1] = 1; locks[2] = 2; locks[3] = 3; locks[4] = 4;
+				flushFlag = false;
+				PC.address = PCaddrAfterFlush;
 			}
 
 		} while(true);
