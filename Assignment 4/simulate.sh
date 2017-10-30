@@ -1,3 +1,4 @@
+#!/bin/sh
 # Script to simulate input assembly given in $1
 	
 	# Change to binary directory

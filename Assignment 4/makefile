@@ -9,4 +9,4 @@ assembler:
 	javac -d bin/ preprocessing.java
 
 clean:
-	rm -f bin/* binary_prog data_dump out
+	rm -rf bin/* binary_prog data_dump out OUT

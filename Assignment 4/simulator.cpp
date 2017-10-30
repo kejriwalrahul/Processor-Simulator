@@ -320,7 +320,6 @@ public:
 		// Simulate in reverse order of stages to avoid temporary variables (buffer registers)
 		do{
 
-
 			/*
 				Stage 5 - Write Back
 			*/
@@ -368,44 +367,48 @@ public:
 			oldOpcode = opcode;
 			tgtReg = regIds[0];
 
-			if(!locks[EXE_STAGE]){
-				// Data Forwarding here
-				for(int idx=0; idx<3; idx++){
-					if(regIds[idx] == lastComputedRegs[2])
-						regVals[idx] = lastComputedVals[2];
-					else if(regIds[idx] == lastComputedRegs[1])
-						regVals[idx] = lastComputedVals[1];
-					else if(regIds[idx] == lastComputedRegs[0])
-						regVals[idx] = lastComputedVals[0];
-				}
+			// Data Forwarding here
+			for(int idx=0; idx<3; idx++){
+				if(regIds[idx] == lastComputedRegs[2])
+					regVals[idx] = lastComputedVals[2];
+				else if(regIds[idx] == lastComputedRegs[1])
+					regVals[idx] = lastComputedVals[1];
+				else if(regIds[idx] == lastComputedRegs[0])
+					regVals[idx] = lastComputedVals[0];
+			}
 
+			bool isExececuted = false;
+			if(!locks[EXE_STAGE]){
 				// Execute
 				execute(opcode, regIds, regVals, ImmVal, Addr, oldPC, ALUResult, loc, nextPC);				
-			
-				// Cycle the stored vals
-				lastComputedRegs[0] = lastComputedRegs[1];
-				lastComputedRegs[1] = lastComputedRegs[2];
-				lastComputedVals[0] = lastComputedVals[1];
-				lastComputedVals[1] = lastComputedVals[2];
+				isExececuted = true;
+			}
+			else
+				locks[EXE_STAGE]--;
 
-				// Store latest computed value
-				if(	
+			// Cycle the stored vals
+			lastComputedRegs[0] = lastComputedRegs[1];
+			lastComputedRegs[1] = lastComputedRegs[2];
+			lastComputedVals[0] = lastComputedVals[1];
+			lastComputedVals[1] = lastComputedVals[2];
+
+			// Store latest computed value
+			if(	isExececuted && !flushFlag && 
+				(
 					opcode == ADD  || 
 					opcode == ADDI || 
 					opcode == SUB  || 
 					opcode == SUBI || 
 					opcode == MUL  || 
-					opcode == MULI 
-				  ){
-					lastComputedVals[2] = ALUResult;
-					lastComputedRegs[2] = regIds[0];	
-				}
-				else{
-					lastComputedRegs[2] = 32;						
-				}
+					opcode == MULI
+				) 
+			  ){
+				lastComputedVals[2] = ALUResult;
+				lastComputedRegs[2] = regIds[0];	
 			}
-			else
-				locks[EXE_STAGE]--;
+			else{
+				lastComputedRegs[2] = 32;						
+			}
 
 			/*
 				Stage 2 - Decode and Fetch Operands 
