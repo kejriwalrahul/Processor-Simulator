@@ -12,11 +12,14 @@ except:
 	pass
 
 files = os.listdir(TEST_DIR)
+files = sorted(files)
+
 for file in files:
 	with open(TEST_DIR+file) as fin, open(OUT_DIR+file,'w') as fout:
 		subprocess.call('./simulate.sh', stdin=fin, stdout=fout)
 
 	print 'diff ' + OUT_DIR + file + ' ' + OUT2_DIR + file
+	
 	out = subprocess.check_output(['diff', OUT_DIR + file, OUT2_DIR + file])
 	if out == '':
 		print "Success"

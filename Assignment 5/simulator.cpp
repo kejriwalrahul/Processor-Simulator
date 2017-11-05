@@ -26,6 +26,11 @@ using namespace std;
 #define MAX_REGS 16
 
 /*
+	Issue Factor of Processor
+*/
+#define NUM_ISSUE 2
+
+/*
 	Instruction Reference
 */
 #define ADD  0
@@ -41,6 +46,8 @@ using namespace std;
 #define JMP  12
 #define BEQZ 13
 #define HLT  14
+
+#define NOP 15
 
 /*
 	Structure to hold instructions
@@ -127,9 +134,12 @@ class Processor{
 	*/
 
 	/* Stage 1: Instruction Fetch & Increment PC */
-	void instrFetch(){
+	void instrFetch(Instruction* &instr, MemoryAddress &prog_ctr){
 		IR = &InstrMemory[PC.address/2];
 		PC.address += 2;
+
+		instr = IR;
+		prog_ctr = PC;
 	}
 
 	/* Stage 2: Decode & Operand Fetch */
@@ -238,6 +248,63 @@ class Processor{
 		}
 	}
 
+	/* Checks if RAW dependency exists btwn the two instructions */
+	bool isConflicting(Instruction *i1, Instruction *i2){
+		// Check what i1 writes to
+		int write_idx = -1;
+		if(
+			i1->opcode == ADD  ||
+			i1->opcode == ADDI ||
+			i1->opcode == SUB  ||
+			i1->opcode == SUBI ||
+			i1->opcode == MUL  ||
+			i1->opcode == MULI ||
+			i1->opcode == LD
+		  )
+			write_idx = i1->op1;
+		else
+			return false;
+
+		// Check if i2 reads write_idx register
+		if(
+			(
+				i2->opcode == SD   || 
+				i2->opcode == BEQZ
+			) && 
+			i2->op1 == write_idx
+		  )
+			return true;
+
+		if(
+			(
+				i2->opcode == ADD  ||
+				i2->opcode == ADDI ||
+				i2->opcode == SUB  ||
+				i2->opcode == SUBI ||
+				i2->opcode == MUL  ||
+				i2->opcode == MULI ||
+				i2->opcode == LD   ||
+				i2->opcode == SD
+			) &&
+			i2->op2 == write_idx
+		  )
+			return true;
+
+		if(
+			(
+				i2->opcode == ADD  ||
+				i2->opcode == SUB  ||
+				i2->opcode == MUL  ||
+				i2->opcode == LD   ||
+				i2->opcode == SD
+			) &&
+			i2->op3 == write_idx
+		  )
+			return true;
+	
+		return false;
+	}
+
 public:
 
 	/*
@@ -291,45 +358,57 @@ public:
 		int locks[5] = { 0, 1, 2, 3, 4 };
 
 		/* Data Forwarding */
-		Data lastComputedVals[3];
-		unsigned short lastComputedRegs[3];
-		for(int idx=0; idx<3; idx++)	lastComputedRegs[idx] = 32;
+		Data lastComputedVals[3*NUM_ISSUE];
+		unsigned short lastComputedRegs[3*NUM_ISSUE];
+		for(int idx=0; idx<3*NUM_ISSUE; idx++)	lastComputedRegs[idx] = 32;
 
-		/* Interface Variable Declarations */
+		/* Interface Variable Declarations for 1st issue */
 		
-		MemoryAddress oldPC;
-		unsigned short opcode;
-		unsigned short regIds[3];
-		Data regVals[3];
-		Data ImmVal;
-		unsigned short Addr;
+		MemoryAddress prog_ctr[NUM_ISSUE];
+		Instruction *instr[NUM_ISSUE];
 
-		Data ALUResult;
-		unsigned short loc;
-		MemoryAddress nextPC; nextPC.isData = 0;
-		unsigned short oldOpcode;
+		MemoryAddress oldPC[NUM_ISSUE];
+		unsigned short opcode[NUM_ISSUE];
+		unsigned short regIds[NUM_ISSUE][3];
+		Data regVals[NUM_ISSUE][3];
+		Data ImmVal[NUM_ISSUE];
+		unsigned short Addr[NUM_ISSUE];
 
-		Data newALUResult;
-		unsigned short tgtReg;
-		unsigned short oldTgtReg;
-		unsigned short olderOpcode;
+		Data ALUResult[NUM_ISSUE];
+		unsigned short loc[NUM_ISSUE];
+		MemoryAddress nextPC[NUM_ISSUE]; 
+		for(int idx=0; idx<NUM_ISSUE; idx++)	nextPC[idx].isData = 0;
+		unsigned short oldOpcode[NUM_ISSUE];
+
+		Data newALUResult[NUM_ISSUE];
+		unsigned short tgtReg[NUM_ISSUE];
+		unsigned short oldTgtReg[NUM_ISSUE];
+		unsigned short olderOpcode[NUM_ISSUE];
 
 		bool flushFlag;
 		unsigned short PCaddrAfterFlush;
-		
+		int flusherIdx;
+
 		// Simulate in reverse order of stages to avoid temporary variables (buffer registers)
 		do{
 
 			/*
 				Stage 5 - Write Back
 			*/
-
+			bool HLT_flag = false;
 			if(!locks[WB_STAGE]){
-				// write back
-				writeBack(newALUResult, oldTgtReg, olderOpcode);
-			
-				// Check termination
-				if(olderOpcode == HLT)
+				// For each issue, do
+				for(int idx=0; idx<NUM_ISSUE; idx++){
+					// write back
+					writeBack(newALUResult[idx], oldTgtReg[idx], olderOpcode[idx]);
+	
+					// Check termination
+					if(olderOpcode[idx] == HLT){
+						HLT_flag = true;
+						break;
+					}
+				}
+				if(HLT_flag)
 					break;
 			}
 			else
@@ -339,8 +418,11 @@ public:
 				Stage 4 - Memory Operations & PC updation & flushing
 			*/
 
-			olderOpcode = oldOpcode;
-			oldTgtReg = tgtReg;
+			// For each issue, need to pass along data lines
+			for(int idx=0; idx<NUM_ISSUE; idx++){
+				olderOpcode[idx] = oldOpcode[idx];
+				oldTgtReg[idx] = tgtReg[idx];
+			}
 
 			if(!locks[MEM_STAGE]){
 				/*
@@ -348,13 +430,20 @@ public:
 					and writes are not separated by any pipeline stages.
 				*/
 
-				// Mem Ops & branch
-				memoryOpsAndBranch(ALUResult, loc, nextPC, oldOpcode, flushFlag, newALUResult, PCaddrAfterFlush);
-			
-				/* Some data forwarding*/
-				if(oldOpcode == LD){
-					lastComputedRegs[2] = tgtReg;
-					lastComputedVals[2] = newALUResult;
+				for(int idx=0; idx<NUM_ISSUE; idx++){
+					// Mem Ops & branch
+					memoryOpsAndBranch(ALUResult[idx], loc[idx], nextPC[idx], oldOpcode[idx], flushFlag, newALUResult[idx], PCaddrAfterFlush);
+				
+					/* Some data forwarding*/
+					if(oldOpcode[idx] == LD){
+						lastComputedRegs[2*NUM_ISSUE + idx] = tgtReg[idx];
+						lastComputedVals[2*NUM_ISSUE + idx] = newALUResult[idx];
+					}
+
+					if(flushFlag){
+						flusherIdx = idx;
+						break;
+					}
 				}
 			}
 			else
@@ -364,60 +453,72 @@ public:
 				Stage 3 - Execute 
 			*/
 
-			oldOpcode = opcode;
-			tgtReg = regIds[0];
+			// For each issue, need to pass along data lines
+			for(int idx=0; idx<NUM_ISSUE; idx++){
+				oldOpcode[idx] = opcode[idx];
+				tgtReg[idx] = regIds[idx][0];
+			}
 
 			// Data Forwarding here
-			for(int idx=0; idx<3; idx++){
-				if(regIds[idx] == lastComputedRegs[2])
-					regVals[idx] = lastComputedVals[2];
-				else if(regIds[idx] == lastComputedRegs[1])
-					regVals[idx] = lastComputedVals[1];
-				else if(regIds[idx] == lastComputedRegs[0])
-					regVals[idx] = lastComputedVals[0];
+			for(int issue_idx=0; issue_idx<NUM_ISSUE; issue_idx++){
+				for(int idx=0; idx<3; idx++){
+					for(int idx2=3*NUM_ISSUE-1; idx2>=0; idx2--){
+						if(regIds[issue_idx][idx] == lastComputedRegs[idx2]){
+							regVals[issue_idx][idx] = lastComputedVals[idx2];
+							break;
+						}
+					}
+				}				
 			}
 
-			bool isExececuted = false;
+			bool isExececuted[2] = { false, false };
 			if(!locks[EXE_STAGE]){
-				// Execute
-				execute(opcode, regIds, regVals, ImmVal, Addr, oldPC, ALUResult, loc, nextPC);				
-				isExececuted = true;
+				for(int idx=0; idx<NUM_ISSUE; idx++){
+					// Execute
+					execute(opcode[idx], regIds[idx], regVals[idx], ImmVal[idx], Addr[idx], oldPC[idx], ALUResult[idx], loc[idx], nextPC[idx]);				
+					isExececuted[idx] = true;
+				}
 			}
 			else
-				locks[EXE_STAGE]--;
+				locks[EXE_STAGE]--;				
 
 			// Cycle the stored vals
-			lastComputedRegs[0] = lastComputedRegs[1];
-			lastComputedRegs[1] = lastComputedRegs[2];
-			lastComputedVals[0] = lastComputedVals[1];
-			lastComputedVals[1] = lastComputedVals[2];
+			for(int idx=0; idx<2*NUM_ISSUE; idx++){
+				lastComputedRegs[idx] = lastComputedRegs[idx+NUM_ISSUE];
+				lastComputedVals[idx] = lastComputedVals[idx+NUM_ISSUE];							
+			}
 
 			// Store latest computed value
-			if(	isExececuted && !flushFlag && 
-				(
-					opcode == ADD  || 
-					opcode == ADDI || 
-					opcode == SUB  || 
-					opcode == SUBI || 
-					opcode == MUL  || 
-					opcode == MULI
-				) 
-			  ){
-				lastComputedVals[2] = ALUResult;
-				lastComputedRegs[2] = regIds[0];	
-			}
-			else{
-				lastComputedRegs[2] = 32;						
+			for(int idx=0; idx<NUM_ISSUE; idx++){
+				if(	isExececuted[idx] && !flushFlag && 
+					(
+						opcode[idx] == ADD  || 
+						opcode[idx] == ADDI || 
+						opcode[idx] == SUB  || 
+						opcode[idx] == SUBI || 
+						opcode[idx] == MUL  || 
+						opcode[idx] == MULI
+					) 
+				  ){
+					lastComputedVals[2*NUM_ISSUE+idx] = ALUResult[idx];
+					lastComputedRegs[2*NUM_ISSUE+idx] = regIds[idx][0];	
+				}
+				else{
+					lastComputedRegs[2*NUM_ISSUE+idx] = 32;						
+				}
 			}
 
 			/*
 				Stage 2 - Decode and Fetch Operands 
 			*/
 
-			oldPC = PC;
+			for(int idx=0; idx<NUM_ISSUE; idx++){				
+				oldPC[idx] = prog_ctr[idx];
+			}
 
 			if(!locks[DEC_STAGE]){
-				decodeAndOperandFetch(IR, opcode, regIds, regVals, ImmVal, Addr);
+				for(int idx=0; idx<NUM_ISSUE; idx++)
+					decodeAndOperandFetch(instr[idx], opcode[idx], regIds[idx], regVals[idx], ImmVal[idx], Addr[idx]);
 			}
 			else
 				locks[DEC_STAGE]--;
@@ -427,7 +528,13 @@ public:
 			*/
 			
 			if(!locks[FI_STAGE]){
-				instrFetch();
+				for(int idx=0; idx<NUM_ISSUE; idx++)
+					instrFetch(instr[idx], prog_ctr[idx]);
+			
+				if(isConflicting(instr[0], instr[1])){
+					instr[1] = new Instruction(NOP, 0, 0, 0);
+					PC.address -= 2;
+				}
 			}
 			else
 				locks[FI_STAGE]--;
@@ -439,6 +546,12 @@ public:
 				locks[0] = 0; locks[1] = 1; locks[2] = 2; locks[3] = 3; locks[4] = 4;
 				flushFlag = false;
 				PC.address = PCaddrAfterFlush;
+
+				// Do write-back of next cycle now and lock write-back stage for both issues next cycle
+ 				if(flusherIdx == 1){
+					writeBack(newALUResult[0], oldTgtReg[0], olderOpcode[0]);
+					if(olderOpcode[0] == HLT)	break;
+				}
 			}
 
 		} while(true);
