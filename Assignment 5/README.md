@@ -1,6 +1,6 @@
 # Processor Simulation
 
-Project to simulate code execution on a simple 5-stage pipeline 16-bit processor.
+Project to simulate code execution on a simple 2-issue 5-stage pipeline 16-bit processor.
 
 ## Usage:
 

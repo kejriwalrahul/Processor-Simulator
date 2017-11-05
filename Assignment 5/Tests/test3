@@ -1,0 +1,16 @@
+## Case 3: Multiplication of two numbers 
+
+## // Register File initialization. $Register Name$Contents 
+$R1$600 
+$R2$800 
+
+## // Memory initialization. $Memory Location$ Value 
+$600$150 
+$800$200 
+ 
+##  // Assembly Code 
+LD R3 R0[R1] 
+LD R4 R0[R2] 
+MUL R5 R3 R4 
+SD R0[R1] R5 
+HLT
