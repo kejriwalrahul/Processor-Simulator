@@ -517,6 +517,11 @@ public:
 			}
 
 			if(!locks[DEC_STAGE]){
+				if(isConflicting(instr[0], instr[1])){
+					instr[1] = new Instruction(NOP, 0, 0, 0);
+					PC.address -= 2;
+				}
+
 				for(int idx=0; idx<NUM_ISSUE; idx++)
 					decodeAndOperandFetch(instr[idx], opcode[idx], regIds[idx], regVals[idx], ImmVal[idx], Addr[idx]);
 			}
@@ -529,12 +534,7 @@ public:
 			
 			if(!locks[FI_STAGE]){
 				for(int idx=0; idx<NUM_ISSUE; idx++)
-					instrFetch(instr[idx], prog_ctr[idx]);
-			
-				if(isConflicting(instr[0], instr[1])){
-					instr[1] = new Instruction(NOP, 0, 0, 0);
-					PC.address -= 2;
-				}
+					instrFetch(instr[idx], prog_ctr[idx]);			
 			}
 			else
 				locks[FI_STAGE]--;
