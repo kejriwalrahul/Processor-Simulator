@@ -4,6 +4,6 @@ C++ based simulator for different 16-bit processor designs with a basic ISA cons
 
 ## Versions
 
-1. Version 1 - Non-pipelined architecture
-2. Version 2 - 5-Stage Pipeline architecture
-3. Version 3 - 2-issue 5-Stage Pipeline architecture
+1. __Version 1__: Non-pipelined architecture
+2. __Version 2__: 5-Stage Pipeline architecture
+3. __Version 3__: 2-Issue 5-Stage Pipeline architecture
